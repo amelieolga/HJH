@@ -32,3 +32,13 @@ output "assets_bucket_name" {
   description = "Name of the assets S3 bucket"
   value       = aws_s3_bucket.assets.bucket
 }
+
+output "ec2_instance_role_arn" {
+  description = "ARN of the IAM role created for EC2 instances"
+  value       = aws_iam_role.ec2_instance_role.arn
+}
+
+output "s3_access_policy_arn" {
+  description = "ARN of the S3 assets access policy"
+  value       = aws_iam_policy.s3_assets_access.arn
+}

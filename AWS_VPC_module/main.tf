@@ -180,6 +180,7 @@ resource "aws_instance" "public_vm" {
   vpc_security_group_ids      = [aws_security_group.public_vm.id]
   associate_public_ip_address = true
   key_name                    = aws_key_pair.ssh_key.key_name
+  iam_instance_profile        = aws_iam_instance_profile.ec2_instance_profile.name
 
   tags = {
     Name = "${var.environment}-public-vm"
@@ -193,6 +194,7 @@ resource "aws_instance" "private_vm" {
   subnet_id              = aws_subnet.private[0].id
   vpc_security_group_ids = [aws_security_group.private_vm.id]
   key_name               = aws_key_pair.ssh_key.key_name
+  iam_instance_profile   = aws_iam_instance_profile.ec2_instance_profile.name
 
   tags = {
     Name = "${var.environment}-private-vm"
@@ -289,3 +291,103 @@ data "aws_ami" "ubuntu" {
 data "aws_availability_zones" "available" {
   state = "available"
 }
+# IAM Policy
+data "aws_iam_policy_document" "ec2_instance_policy" {
+  statement {
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket"
+    ]
+    resources = [
+      aws_s3_bucket.assets.arn,
+      "${aws_s3_bucket.assets.arn}/*"
+    ]
+  }
+
+  statement {
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:DescribeLogStreams"
+    ]
+    resources = ["arn:aws:logs:*:*:*"]
+  }
+}
+
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "ec2_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+# IAM Resources
+resource "aws_iam_role" "ec2_instance_role" {
+  name               = "${var.environment}-ec2-instance-role"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
+  tags = {
+    Name = "${var.environment}-ec2-instance-role"
+  }
+}
+
+resource "aws_iam_role_policy" "ec2_instance_policy" {
+  name   = "${var.environment}-ec2-instance-policy"
+  role   = aws_iam_role.ec2_instance_role.id
+  policy = data.aws_iam_policy_document.ec2_instance_policy.json
+}
+
+resource "aws_iam_instance_profile" "ec2_instance_profile" {
+  name = "${var.environment}-ec2-instance-profile"
+  role = aws_iam_role.ec2_instance_role.name
+}
+
+# More granular policy for S3 bucket access
+resource "aws_iam_policy" "s3_assets_access" {
+  name        = "${var.environment}-s3-assets-access"
+  description = "Policy for accessing assets S3 bucket"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Effect   = "Allow"
+        Resource = "${aws_s3_bucket.assets.arn}/*"
+      },
+      {
+        Action = [
+          "s3:ListBucket"
+        ]
+        Effect   = "Allow"
+        Resource = aws_s3_bucket.assets.arn
+      }
+    ]
+  })
+}
+
+# Attach policy to EC2 role
+resource "aws_iam_role_policy_attachment" "s3_assets_access" {
+  role       = aws_iam_role.ec2_instance_role.name
+  policy_arn = aws_iam_policy.s3_assets_access.arn
+}
+

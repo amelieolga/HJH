@@ -39,3 +39,15 @@ variable "region" {
   type        = string
   default     = "us-east-1"
 }
+
+variable "additional_ec2_policies" {
+  description = "List of additional IAM policy ARNs to attach to EC2 instances"
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_cloudwatch_logging" {
+  description = "Whether to enable CloudWatch logging permissions for EC2 instances"
+  type        = bool
+  default     = true
+}
