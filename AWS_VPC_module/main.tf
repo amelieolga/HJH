@@ -304,16 +304,41 @@ data "aws_iam_policy_document" "ec2_instance_policy" {
     ]
   }
 
-  statement {
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "logs:DescribeLogStreams"
-    ]
-    resources = ["arn:aws:logs:*:*:*"]
+  dynamic "statement" {
+    for_each = var.enable_cloudwatch_logging ? [1] : []
+    content {
+      actions = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams"
+      ]
+      resources = ["arn:aws:logs:*:*:*"]
+    }
   }
 }
+# data "aws_iam_policy_document" "ec2_instance_policy" {
+#   statement {
+#     actions = [
+#       "s3:GetObject",
+#       "s3:ListBucket"
+#     ]
+#     resources = [
+#       aws_s3_bucket.assets.arn,
+#       "${aws_s3_bucket.assets.arn}/*"
+#     ]
+#   }
+
+#   statement {
+#     actions = [
+#       "logs:CreateLogGroup",
+#       "logs:CreateLogStream",
+#       "logs:PutLogEvents",
+#       "logs:DescribeLogStreams"
+#     ]
+#     resources = ["arn:aws:logs:*:*:*"]
+#   }
+# }
 
 data "aws_iam_policy_document" "lambda_assume_role" {
   statement {
@@ -337,7 +362,7 @@ data "aws_iam_policy_document" "ec2_assume_role" {
   }
 }
 
-# IAM Resources
+# IAM Roles 
 resource "aws_iam_role" "ec2_instance_role" {
   name               = "${var.environment}-ec2-instance-role"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
@@ -357,7 +382,7 @@ resource "aws_iam_instance_profile" "ec2_instance_profile" {
   role = aws_iam_role.ec2_instance_role.name
 }
 
-# More granular policy for S3 bucket access
+# policy for S3 bucket access
 resource "aws_iam_policy" "s3_assets_access" {
   name        = "${var.environment}-s3-assets-access"
   description = "Policy for accessing assets S3 bucket"

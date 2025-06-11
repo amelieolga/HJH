@@ -8,4 +8,9 @@ module "vpc_module" {
   instance_type       = "t2.micro"
   ssh_public_key_path = "~/.ssh/id_rsa.pub"
   region              = "us-east-1"
+  
+  additional_ec2_policies = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore" # Example additional policy
+  ]
+  enable_cloudwatch_logging = true
 }
